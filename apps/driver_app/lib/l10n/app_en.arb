@@ -1,0 +1,15 @@
+{
+  "@@locale": "en",
+  "driverAppTitle": "Pikipiki Driver",
+  "onlineStatus": "GO ONLINE & RECEIVE RIDES",
+  "offlineStatus": "GO OFFLINE",
+  "scanningRiders": "Scanning for Arua Riders...",
+  "incomingRequest": "INCOMING BODA REQUEST",
+  "acceptRide": "ACCEPT RIDE",
+  "declineRide": "Decline",
+  "arrivedAtPickup": "ARRIVED AT PICKUP STAGE",
+  "startTrip": "START TRIP (PASSENGER ONBOARD)",
+  "completeTrip": "COMPLETE TRIP & COLLECT FARE",
+  "todayEarnings": "Today Earnings",
+  "completedRides": "Completed Rides"
+}

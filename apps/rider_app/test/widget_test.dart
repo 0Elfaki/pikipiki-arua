@@ -1,30 +1,47 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:rider_app/main.dart';
+import 'package:rider_app/core/utils/currency_formatter.dart';
+import 'package:rider_app/core/utils/distance_utils.dart';
+import 'package:rider_app/core/sync/offline_sync_queue.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('Pikipiki Arua Rider Utilities & Sync Tests', () {
+    test('CurrencyFormatter formats UGX correctly', () {
+      expect(CurrencyFormatter.formatUGX(2500), 'UGX 2,500');
+      expect(CurrencyFormatter.formatUGX(10000), 'UGX 10,000');
+      expect(CurrencyFormatter.formatUGX(0), 'UGX 0');
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    test('DistanceUtils calculates distance and boda fare accurately', () {
+      // Distance between Arua Main Market (3.0298, 30.9102) and Muni University (3.0112, 30.9189)
+      final distance = DistanceUtils.calculateDistanceKm(
+        3.0298,
+        30.9102,
+        3.0112,
+        30.9189,
+      );
+      expect(distance, greaterThan(1.5));
+      expect(distance, lessThan(4.0));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      final fare = DistanceUtils.calculateBodaFareUGX(distance);
+      expect(fare, greaterThanOrEqualTo(2000));
+      // Multiples of 500 UGX
+      expect(fare % 500, 0);
+    });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('OfflineSyncQueue enqueues requests with idempotency keys', () {
+      final queue = OfflineSyncQueue();
+      final key1 = queue.enqueue('/api/trips', {'rider': 'rider-123'});
+      final key2 = queue.enqueue('/api/telemetry', {'lat': 3.03, 'lng': 30.90});
+
+      expect(queue.queue.length, 2);
+      expect(queue.queue.first.id, key1);
+
+      queue.remove(key1);
+      expect(queue.queue.length, 1);
+      expect(queue.queue.first.id, key2);
+
+      queue.clear();
+      expect(queue.queue.isEmpty, isTrue);
+    });
   });
 }

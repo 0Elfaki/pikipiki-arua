@@ -1,0 +1,14 @@
+{
+  "@@locale": "en",
+  "appTitle": "Pikipiki Arua",
+  "tagline": "Safe, reliable Boda Boda rides across Arua City",
+  "requestBoda": "Request Pikipiki Boda",
+  "pickupStage": "Pickup Stage",
+  "destination": "Destination",
+  "estimatedFare": "Estimated Boda Fare",
+  "cashPayment": "Cash Payment",
+  "momoPayment": "MTN Mobile Money",
+  "airtelPayment": "Airtel Money Uganda",
+  "cancelTrip": "Cancel Trip Request",
+  "searchingDriver": "Matching Nearest Stage Driver..."
+}

@@ -1,30 +1,40 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:driver_app/main.dart';
+import 'package:driver_app/core/utils/currency_formatter.dart';
+import 'package:driver_app/core/utils/distance_utils.dart';
+import 'package:driver_app/core/sync/offline_sync_queue.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('Pikipiki Arua Driver App Tests', () {
+    test('CurrencyFormatter formats driver earnings correctly', () {
+      expect(CurrencyFormatter.formatUGX(42500), 'UGX 42,500');
+      expect(CurrencyFormatter.formatUGX(3000), 'UGX 3,000');
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    test('DistanceUtils calculates distance accurately', () {
+      final distance = DistanceUtils.calculateDistanceKm(
+        3.0315, // Arua Hill Roundabout
+        30.9065,
+        3.0450, // Onduparaka
+        30.8920,
+      );
+      expect(distance, greaterThan(1.0));
+      expect(distance, lessThan(4.0));
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    test('DriverOfflineSyncQueue records telemetry coordinates', () {
+      final queue = DriverOfflineSyncQueue();
+      final id1 = queue.recordLocation(3.0303, 30.9073);
+      final id2 = queue.recordLocation(3.0305, 30.9075);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+      expect(queue.queue.length, 2);
+      expect(queue.queue.first.id, id1);
+
+      queue.remove(id1);
+      expect(queue.queue.length, 1);
+      expect(queue.queue.first.id, id2);
+
+      queue.clear();
+      expect(queue.queue.isEmpty, isTrue);
+    });
   });
 }
