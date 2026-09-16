@@ -1,0 +1,37 @@
+name: Flutter & Monorepo CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  analyze-and-test:
+    name: Analyze & Test Flutter Apps
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [apps/rider_app, apps/driver_app]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get Dependencies (${{ matrix.app }})
+        working-directory: ${{ matrix.app }}
+        run: flutter pub get
+
+      - name: Analyze Dart Code (${{ matrix.app }})
+        working-directory: ${{ matrix.app }}
+        run: flutter analyze
+
+      - name: Run Unit & Widget Tests (${{ matrix.app }})
+        working-directory: ${{ matrix.app }}
+        run: flutter test
