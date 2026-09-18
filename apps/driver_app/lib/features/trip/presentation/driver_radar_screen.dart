@@ -17,6 +17,15 @@ class DriverRadarScreen extends ConsumerWidget {
     final driver = authState.driver;
     final isOnline = authState.isOnline;
 
+    ref.listen(driverTripNotifierProvider, (previous, next) {
+      if (next.dispatchMessage != null &&
+          next.dispatchMessage != previous?.dispatchMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.dispatchMessage!)),
+        );
+      }
+    });
+
     return Scaffold(
       backgroundColor: DriverAppTheme.primaryDark,
       body: SafeArea(
@@ -164,7 +173,7 @@ class DriverRadarScreen extends ConsumerWidget {
                         const SizedBox(height: 6),
                         Text(
                           isOnline
-                              ? 'Stage Queue Position: #2 (Ready for dispatch)'
+                              ? 'Listening for real dispatch offers near you'
                               : 'Go online to receive nearby passenger requests',
                           style: const TextStyle(
                             color: DriverAppTheme.textMuted,
@@ -181,8 +190,15 @@ class DriverRadarScreen extends ConsumerWidget {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        ref.read(driverAuthNotifierProvider.notifier).toggleOnlineStatus();
+                      onPressed: () async {
+                        await ref.read(driverAuthNotifierProvider.notifier).toggleOnlineStatus();
+                        final nowOnline = ref.read(driverAuthNotifierProvider).isOnline;
+                        final tripNotifier = ref.read(driverTripNotifierProvider.notifier);
+                        if (nowOnline && driver != null) {
+                          await tripNotifier.startListening(driver.id);
+                        } else {
+                          tripNotifier.stopListening();
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isOnline
@@ -200,24 +216,6 @@ class DriverRadarScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-
-                  // Simulate Incoming Ride for testing
-                  if (isOnline && tripState.status == DriverTripStatus.idle) ...[
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        ref.read(driverTripNotifierProvider.notifier).simulateIncomingRide();
-                      },
-                      icon: const Icon(Icons.ring_volume, color: DriverAppTheme.primaryAmber),
-                      label: const Text(
-                        'Simulate Incoming Ride Request',
-                        style: TextStyle(color: DriverAppTheme.primaryAmber),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: DriverAppTheme.primaryAmber),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -359,9 +357,13 @@ class DriverRadarScreen extends ConsumerWidget {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: () {
-                        ref.read(driverTripNotifierProvider.notifier).acceptTrip();
-                        context.push('/navigation');
+                      onPressed: () async {
+                        await ref.read(driverTripNotifierProvider.notifier).acceptTrip();
+                        final accepted = ref.read(driverTripNotifierProvider).status ==
+                            DriverTripStatus.accepted;
+                        if (accepted && context.mounted) {
+                          context.push('/navigation');
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),

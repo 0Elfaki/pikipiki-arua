@@ -32,6 +32,12 @@ file_size_limit = "50MiB"
 [functions.dispatch-webhook]
 verify_jwt = false
 
+[functions.dispatch-respond]
+verify_jwt = false
+
+[functions.driver-presence]
+verify_jwt = false
+
 [functions.ussd-handler]
 verify_jwt = false
 

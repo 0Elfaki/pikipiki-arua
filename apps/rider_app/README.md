@@ -1,17 +1,61 @@
-# rider_app
+# Pikipiki Arua: Rider Application
 
-A new Flutter project.
+Passenger-facing Flutter mobile application for booking Boda Boda rides, tracking drivers in real-time, and settling fares in Arua City and West Nile, Uganda.
 
-## Getting Started
+## Proprietary Notice
 
-This project is a starting point for a Flutter application.
+This software is the proprietary intellectual property of the organization. While this repository is publicly accessible for specific reasons, it is NOT open source software. All rights are reserved. Unauthorized reproduction, modification, distribution, or commercial deployment is strictly prohibited.
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Technical Stack
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Framework: Flutter (Android, iOS, Web, Windows)
+- State Management: Flutter Riverpod 2.x
+- Routing: GoRouter
+- Backend: Supabase (PostgreSQL, Realtime WebSockets, PostGIS)
+- Local Storage: Flutter Secure Storage
+
+---
+
+## Directory Structure
+
+```
+rider_app/
+|-- lib/
+|   |-- main.dart
+|   |-- app/
+|   |   |-- providers.dart
+|   |   |-- router.dart
+|   |   `-- theme.dart
+|   |-- core/
+|   |   |-- network/          # Supabase client wrapper
+|   |   |-- storage/          # Secure storage service
+|   |   |-- sync/             # Offline sync queue and idempotency
+|   |   `-- utils/            # UGX currency and distance utils
+|   |-- features/
+|   |   |-- auth/             # Phone number OTP login
+|   |   |-- trip/             # Interactive map, stage selector, booking
+|   |   |-- payments/         # Cash and MTN / Airtel MoMo selector
+|   |   `-- profile/          # User profile and safety contacts
+|   `-- l10n/                 # Localization strings
+`-- test/
+```
+
+---
+
+## Running Locally
+
+```bash
+# Fetch packages
+flutter pub get
+
+# Run static code analysis
+flutter analyze
+
+# Run unit and widget tests
+flutter test
+
+# Start application
+flutter run
+```

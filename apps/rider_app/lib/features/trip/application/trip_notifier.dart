@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/trip_model.dart';
 import '../data/trip_repository.dart';
+import '../data/matched_driver_model.dart';
 import '../../../app/providers.dart';
 import '../../../core/utils/distance_utils.dart';
 
@@ -11,6 +15,8 @@ class TripState {
   final BodaStage? selectedDropoffStage;
   final double estimatedFareUgx;
   final Trip? currentTrip;
+  final MatchedDriver? matchedDriver;
+  final String? dispatchMessage;
   final String? errorMessage;
 
   const TripState({
@@ -20,6 +26,8 @@ class TripState {
     this.selectedDropoffStage,
     this.estimatedFareUgx = 2000.0,
     this.currentTrip,
+    this.matchedDriver,
+    this.dispatchMessage,
     this.errorMessage,
   });
 
@@ -30,6 +38,10 @@ class TripState {
     BodaStage? selectedDropoffStage,
     double? estimatedFareUgx,
     Trip? currentTrip,
+    bool clearCurrentTrip = false,
+    MatchedDriver? matchedDriver,
+    bool clearMatchedDriver = false,
+    String? dispatchMessage,
     String? errorMessage,
   }) {
     return TripState(
@@ -38,7 +50,10 @@ class TripState {
       selectedPickupStage: selectedPickupStage ?? this.selectedPickupStage,
       selectedDropoffStage: selectedDropoffStage ?? this.selectedDropoffStage,
       estimatedFareUgx: estimatedFareUgx ?? this.estimatedFareUgx,
-      currentTrip: currentTrip ?? this.currentTrip,
+      currentTrip: clearCurrentTrip ? null : (currentTrip ?? this.currentTrip),
+      matchedDriver:
+          clearMatchedDriver ? null : (matchedDriver ?? this.matchedDriver),
+      dispatchMessage: dispatchMessage,
       errorMessage: errorMessage,
     );
   }
@@ -46,6 +61,7 @@ class TripState {
 
 class TripNotifier extends StateNotifier<TripState> {
   final TripRepository _repository;
+  RealtimeChannel? _tripChannel;
 
   TripNotifier(this._repository) : super(const TripState()) {
     loadStages();
@@ -108,10 +124,16 @@ class TripNotifier extends StateNotifier<TripState> {
       return null;
     }
 
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(
+      isLoading: true,
+      errorMessage: null,
+      clearMatchedDriver: true,
+      dispatchMessage: 'Looking for the nearest available boda...',
+    );
     try {
       final trip = await _repository.createTripRequest(
         riderId: riderId,
+        pickupStageId: state.selectedPickupStage!.id,
         pickupAddress: state.selectedPickupStage!.name,
         pickupLat: state.selectedPickupStage!.latitude,
         pickupLng: state.selectedPickupStage!.longitude,
@@ -122,6 +144,8 @@ class TripNotifier extends StateNotifier<TripState> {
         paymentMethod: paymentMethod,
       );
       state = state.copyWith(isLoading: false, currentTrip: trip);
+      _listenForMatch(trip.id);
+      unawaited(_dispatch(trip.id));
       return trip;
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
@@ -129,8 +153,61 @@ class TripNotifier extends StateNotifier<TripState> {
     }
   }
 
+  Future<void> _dispatch(String tripId) async {
+    final result = await _repository.requestDispatch(tripId);
+    if (result == null) return;
+    if (result['matched'] == false) {
+      state = state.copyWith(
+        dispatchMessage: result['reason'] == 'no_drivers_available'
+            ? 'No boda drivers are online nearby right now. Keep this open - we will keep trying.'
+            : 'Still searching for a nearby boda...',
+      );
+    }
+  }
+
+  void _listenForMatch(String tripId) {
+    _tripChannel?.unsubscribe();
+    _tripChannel = _repository.subscribeToTrip(
+      tripId: tripId,
+      onUpdate: (row) async {
+        final trip = Trip.fromJson(row);
+        state = state.copyWith(currentTrip: trip);
+        final driverId = trip.driverId;
+        if (driverId != null &&
+            (trip.status == 'searching' ||
+                trip.status == 'accepted' ||
+                trip.status == 'in_progress')) {
+          final driver = await _repository.fetchMatchedDriver(driverId);
+          state = state.copyWith(
+            matchedDriver: driver,
+            dispatchMessage: trip.status == 'searching'
+                ? 'Confirming with the nearest boda driver...'
+                : 'Your boda is on the way!',
+          );
+        } else if (trip.status == 'requested') {
+          state = state.copyWith(
+            clearMatchedDriver: true,
+            dispatchMessage: 'Still searching for a nearby boda...',
+          );
+        }
+      },
+    );
+  }
+
   void cancelTrip() {
-    state = state.copyWith(currentTrip: null);
+    _tripChannel?.unsubscribe();
+    _tripChannel = null;
+    state = state.copyWith(
+      clearCurrentTrip: true,
+      clearMatchedDriver: true,
+      dispatchMessage: null,
+    );
+  }
+
+  @override
+  void dispose() {
+    _tripChannel?.unsubscribe();
+    super.dispose();
   }
 }
 

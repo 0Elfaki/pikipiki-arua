@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'trip_model.dart';
+import 'matched_driver_model.dart';
 
 class TripRepository {
   final SupabaseClient _supabase;
@@ -67,6 +68,7 @@ class TripRepository {
 
   Future<Trip> createTripRequest({
     required String riderId,
+    String? pickupStageId,
     required String pickupAddress,
     required double pickupLat,
     required double pickupLng,
@@ -78,6 +80,7 @@ class TripRepository {
   }) async {
     final payload = {
       'rider_id': riderId,
+      'stage_id': ?pickupStageId,
       'pickup_address': pickupAddress,
       'pickup_latitude': pickupLat,
       'pickup_longitude': pickupLng,
@@ -109,5 +112,62 @@ class TripRepository {
         createdAt: DateTime.now(),
       );
     }
+  }
+
+  /// Invokes the dispatch matching engine for a just-created trip.
+  /// Returns the edge function's result, e.g. `{matched: true, driverId: ...}`
+  /// or `{matched: false, reason: 'no_drivers_available'}` - or null if the
+  /// call itself failed (e.g. offline); the realtime subscription set up by
+  /// [subscribeToTrip] will still reflect a match if dispatch succeeds later.
+  Future<Map<String, dynamic>?> requestDispatch(String tripId) async {
+    try {
+      final response = await _supabase.functions.invoke(
+        'dispatch-webhook',
+        body: {'trip_id': tripId},
+      );
+      return response.data as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<MatchedDriver?> fetchMatchedDriver(String driverId) async {
+    try {
+      final driverRow =
+          await _supabase.from('drivers').select().eq('id', driverId).single();
+      final profileRow = await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', driverId)
+          .maybeSingle();
+      return MatchedDriver.fromRows(driverRow, profileRow);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Subscribes to realtime updates for a single trip (status/driver_id
+  /// changes as the dispatch engine matches a driver, or a driver
+  /// accepts/declines the offer). Caller is responsible for unsubscribing
+  /// the returned channel when no longer needed.
+  RealtimeChannel subscribeToTrip({
+    required String tripId,
+    required void Function(Map<String, dynamic> tripRow) onUpdate,
+  }) {
+    final channel = _supabase.channel('trip-$tripId');
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'trips',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: tripId,
+          ),
+          callback: (payload) => onUpdate(payload.newRecord),
+        )
+        .subscribe();
+    return channel;
   }
 }
